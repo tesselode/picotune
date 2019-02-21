@@ -1,10 +1,32 @@
 pico-8 cartridge // http://www.pico-8.com
 version 16
 __lua__
+-- audio utilities
 local function load_audio_from_file(filename)
 	reload(0x3100, 0x3100, 0x11ff, filename)
 end
 
+local function is_pattern_empty(pattern_index)
+	local start_address = 0x3100 + 4 * pattern_index
+	for address = start_address, start_address + 3 do
+		if band(bnot(peek(address)), 0b01000000) > 0 then
+			return false
+		end
+	end
+	return true
+end
+
+local function get_pattern_flags(pattern_index)
+	local start_address = 0x3100 + 4 * pattern_index
+	local is_begin_loop = band(peek(start_address), 0b10000000) > 0
+	local is_end_loop = band(peek(start_address + 1), 0b10000000) > 0
+	local is_stop = band(peek(start_address + 2), 0b10000000) > 0
+	return is_begin_loop, is_end_loop, is_stop
+end
+
+-->8
+-- now playing
+local is_playing = false
 local selected_pattern = 0
 
 -- cosmetic
@@ -17,7 +39,6 @@ end
 function _init()
 	poke(0x5f2c, 3)
 	load_audio_from_file 'test.p8'
-	music(0)
 end
 
 function _update60()
@@ -36,9 +57,20 @@ function _update60()
 		pattern_cursor_blink_phase = 0
 	end
 
+	-- start/stop music
+	if btnp(4) then
+		if is_playing and selected_pattern == stat(24) then
+			music(-1)
+			is_playing = false
+		else
+			music(selected_pattern)
+			is_playing = not is_pattern_empty(selected_pattern)
+		end
+	end
+
 	-- playing pattern animation
 	for pattern_index = 0, 63 do
-		local target_oy = stat(24) == pattern_index and -3 or 0
+		local target_oy = (is_playing and stat(24) == pattern_index) and -3 or 0
 		if pattern_display_oy[pattern_index] < target_oy then
 			pattern_display_oy[pattern_index] += 1/4
 		elseif pattern_display_oy[pattern_index] > target_oy then
@@ -55,24 +87,8 @@ function _draw()
 
 	-- draw music minimap
 	for pattern_index = 0, 63 do
-		local is_empty = true
-
-		-- get the starting address of this music pattern in memory
-		local start_address = 0x3100 + 4 * pattern_index
-
-		-- check if sfx is enabled in any of the channels
-		for address = start_address, start_address + 3 do
-			if band(bnot(peek(address)), 0b01000000) > 0 then
-				is_empty = false
-			end
-		end
-
-		-- check for flags
-		local is_begin_loop = band(peek(start_address), 0b10000000) > 0
-		local is_end_loop = band(peek(start_address + 1), 0b10000000) > 0
-		local is_stop = band(peek(start_address + 2), 0b10000000) > 0
-
-		-- draw a line representing the pattern
+		local is_empty = is_pattern_empty(pattern_index)
+		local is_begin_loop, is_end_loop, is_stop = get_pattern_flags(pattern_index)
 		local color = is_begin_loop and 14
 				   or is_end_loop and 2
 		           or is_stop and 8
