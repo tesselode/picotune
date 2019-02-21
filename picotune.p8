@@ -90,10 +90,10 @@ function _draw()
 		local is_empty = is_pattern_empty(pattern_index)
 		local is_begin_loop, is_end_loop, is_stop = get_pattern_flags(pattern_index)
 		local color = is_begin_loop and 14
-				   or is_end_loop and 2
-		           or is_stop and 8
-				   or is_empty and 1
-				   or 13
+			or is_end_loop and 2
+			or is_stop and 8
+			or is_empty and 1
+			or 13
 		local oy = pattern_display_oy[pattern_index]
 		line(pattern_index, 32 + oy, pattern_index, 40 + oy, color)
 	end
