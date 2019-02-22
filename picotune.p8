@@ -2,10 +2,6 @@ pico-8 cartridge // http://www.pico-8.com
 version 16
 __lua__
 -- audio utilities
-local function load_audio_from_file(filename)
-	reload(0x3100, 0x3100, 0x11ff, filename)
-end
-
 local function is_pattern_empty(pattern_index)
 	local start_address = 0x3100 + 4 * pattern_index
 	for address = start_address, start_address + 3 do
@@ -24,8 +20,25 @@ local function get_pattern_flags(pattern_index)
 	return is_begin_loop, is_end_loop, is_stop
 end
 
+local function load_audio_from_file(filename)
+	reload(0x3100, 0x3100, 0x11ff, filename)
+	local tracks = {}
+	local in_track = false
+	for pattern_index = 0, 63 do
+		local is_begin_loop, is_end_loop, is_stop = get_pattern_flags(pattern_index)
+		if is_pattern_empty(pattern_index) or is_end_loop or is_stop then
+			in_track = false
+		elseif not in_track then
+			in_track = true
+			tracks[pattern_index] = true
+		end
+	end
+	return tracks
+end
+
 -->8
 -- now playing
+local tracks = {}
 local is_playing = false
 local selected_row = 'minimap'
 local selected_pattern = 0
@@ -40,7 +53,7 @@ end
 
 function _init()
 	poke(0x5f2c, 3)
-	load_audio_from_file 'test.p8'
+	tracks = load_audio_from_file 'test.p8'
 end
 
 function _update60()
@@ -87,13 +100,36 @@ function _update60()
 				is_playing = not is_pattern_empty(selected_pattern)
 			end
 		elseif selected_row == 'controls' then
-			if selected_button == 2 then
+			if selected_button == 1 then
+				-- previous track
+				for pattern_index = selected_pattern - 1, 0, -1 do
+					if tracks[pattern_index] then
+						selected_pattern = pattern_index
+						if is_playing then
+							music(selected_pattern)
+						end
+						break
+					end
+				end
+			elseif selected_button == 2 then
+				-- play/stop button
 				if is_playing then
 					music(-1)
 					is_playing = false
 				else
 					music(selected_pattern)
 					is_playing = true
+				end
+			elseif selected_button == 3 then
+				-- next track
+				for pattern_index = selected_pattern + 1, 63 do
+					if tracks[pattern_index] then
+						selected_pattern = pattern_index
+						if is_playing then
+							music(selected_pattern)
+						end
+						break
+					end
 				end
 			end
 		end
@@ -132,7 +168,8 @@ function _draw()
 	-- draw pattern cursor
 	if sin(pattern_cursor_blink_phase) < 0 then
 		local oy = pattern_display_oy[selected_pattern]
-		line(selected_pattern, 32 + oy, selected_pattern, 40 + oy, 7)
+		local color = selected_row == 'minimap' and 7 or 6
+		line(selected_pattern, 32 + oy, selected_pattern, 40 + oy, color)
 	end
 
 	-- draw player controls
