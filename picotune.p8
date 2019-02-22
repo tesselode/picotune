@@ -27,7 +27,9 @@ end
 -->8
 -- now playing
 local is_playing = false
+local selected_row = 'minimap'
 local selected_pattern = 0
+local selected_button = 2
 
 -- cosmetic
 local pattern_cursor_blink_phase = 0
@@ -42,29 +44,58 @@ function _init()
 end
 
 function _update60()
-	-- pattern navigation
-	if btnp(0) then
-		selected_pattern -= 1
-		if selected_pattern < 0 then
-			selected_pattern = 63
-		end
-		pattern_cursor_blink_phase = 0
-	elseif btnp(1) then
-		selected_pattern += 1
-		if selected_pattern > 63 then
-			selected_pattern = 0
-		end
-		pattern_cursor_blink_phase = 0
+	-- switch rows
+	if selected_row == 'minimap' and btnp(3) then
+		selected_row = 'controls'
+	end
+	if selected_row == 'controls' and btnp(2) then
+		selected_row = 'minimap'
 	end
 
-	-- start/stop music
+	if selected_row == 'minimap' then
+		-- pattern navigation
+		if btnp(0) then
+			selected_pattern -= 1
+			if selected_pattern < 0 then
+				selected_pattern = 63
+			end
+			pattern_cursor_blink_phase = 0
+		elseif btnp(1) then
+			selected_pattern += 1
+			if selected_pattern > 63 then
+				selected_pattern = 0
+			end
+			pattern_cursor_blink_phase = 0
+		end
+	elseif selected_row == 'controls' then
+		-- player controls
+		if btnp(0) then
+			selected_button = max(1, selected_button - 1)
+		elseif btnp(1) then
+			selected_button = min(3, selected_button + 1)
+		end
+	end
+
 	if btnp(4) then
-		if is_playing and selected_pattern == stat(24) then
-			music(-1)
-			is_playing = false
-		else
-			music(selected_pattern)
-			is_playing = not is_pattern_empty(selected_pattern)
+		if selected_row == 'minimap' then
+		-- start/stop music on minimap
+			if is_playing and selected_pattern == stat(24) then
+				music(-1)
+				is_playing = false
+			else
+				music(selected_pattern)
+				is_playing = not is_pattern_empty(selected_pattern)
+			end
+		elseif selected_row == 'controls' then
+			if selected_button == 2 then
+				if is_playing then
+					music(-1)
+					is_playing = false
+				else
+					music(selected_pattern)
+					is_playing = true
+				end
+			end
 		end
 	end
 
@@ -105,9 +136,25 @@ function _draw()
 	end
 
 	-- draw player controls
+	if selected_row == 'controls' and selected_button == 1 then
+		pal(14, 7)
+	else
+		pal(14, 14)
+	end
 	spr(4, 18, 44)
-	spr(1, 28, 44)
+	if selected_row == 'controls' and selected_button == 2 then
+		pal(14, 7)
+	else
+		pal(14, 14)
+	end
+	spr(is_playing and 2 or 1, 28, 44)
+	if selected_row == 'controls' and selected_button == 3 then
+		pal(14, 7)
+	else
+		pal(14, 14)
+	end
 	spr(3, 38, 44)
+	pal()
 end
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
