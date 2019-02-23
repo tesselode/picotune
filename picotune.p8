@@ -93,6 +93,68 @@ local function load_audio_from_file(filename)
 end
 
 -->8
+-- menu
+
+state.menu = {
+	selected = 1,
+	oy = 0,
+}
+
+function state.menu:enter()
+	self.options = {
+		{
+			text = 'now playing...',
+			confirm = function()
+				switch_state(state.now_playing)
+			end,
+		},
+	}
+	for filename in all(dir()) do
+		add(self.options, {
+			text = get_cart_name(filename),
+			confirm = function()
+				load_audio_from_file(filename)
+				switch_state(state.now_playing)
+			end,
+		})
+	end
+end
+
+function state.menu:update()
+	if btnp(2) then
+		self.selected -= 1
+		if self.selected < 1 then
+			self.selected = #self.options
+		end
+	elseif btnp(3) then
+		self.selected += 1
+		if self.selected > #self.options then
+			self.selected = 1
+		end
+	elseif btnp(4) then
+		self.options[self.selected].confirm()
+	end
+
+	local target_oy = 8 * (self.selected - 4)
+	target_oy = min(target_oy, 8 * #self.options - 62)
+	target_oy = max(0, target_oy)
+	self.oy += (target_oy - self.oy) / 4
+end
+
+function state.menu:draw()
+	cls()
+	camera(0, self.oy)
+	for i = 1, #self.options do
+		local y = 8 * (i - 1)
+		if i == self.selected then
+			rectfill(0, y, 64, y + 8, 1)
+		end
+		print(self.options[i].text, 1, y + 2, 7)
+	end
+	camera()
+end
+
+-->8
 -- now playing screen
 
 state.now_playing = {}
@@ -189,6 +251,10 @@ function state.now_playing:update()
 				end
 			end
 		end
+	end
+
+	if btnp(5) then
+		switch_state(state.menu)
 	end
 
 	-- playing pattern animation
@@ -305,8 +371,7 @@ end
 
 function _init()
 	poke(0x5f2c, 3)
-	load_audio_from_file 'tera.p8'
-	switch_state(state.now_playing)
+	switch_state(state.menu)
 end
 
 function _update60()
