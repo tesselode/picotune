@@ -3,7 +3,7 @@ version 16
 __lua__
 -- filename utilities
 local function get_cart_name(filename)
-	for pos = 1, #filename - 3 do
+	for pos = 1, #filename - 2 do
 		if sub(filename, pos, pos + 2) == '.p8' then
 			return sub(filename, 1, pos - 1)
 		end
@@ -91,7 +91,7 @@ end
 
 function _init()
 	poke(0x5f2c, 3)
-	load_audio_from_file 'celeste.p8.png'
+	load_audio_from_file 'tera.p8'
 end
 
 function _update60()
