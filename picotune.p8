@@ -227,12 +227,10 @@ function state.now_playing:update()
 		elseif self.selected_row == 'controls' then
 			if self.selected_button == 1 then
 				-- previous track
-				for pattern_index = self.selected_pattern - 1, 0, -1 do
+				for pattern_index = stat(24) - 1, 0, -1 do
 					if tracks[pattern_index] then
-						self.selected_pattern = pattern_index
-						if is_playing then
-							music(self.selected_pattern)
-						end
+						music(pattern_index)
+						is_playing = true
 						break
 					end
 				end
@@ -247,12 +245,10 @@ function state.now_playing:update()
 				end
 			elseif self.selected_button == 3 then
 				-- next track
-				for pattern_index = self.selected_pattern + 1, 63 do
+				for pattern_index = stat(24) + 1, 63 do
 					if tracks[pattern_index] then
-						self.selected_pattern = pattern_index
-						if is_playing then
-							music(self.selected_pattern)
-						end
+						music(pattern_index)
+						is_playing = true
 						break
 					end
 				end
