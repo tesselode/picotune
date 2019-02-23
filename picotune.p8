@@ -104,26 +104,21 @@ end
 
 state.menu = {
 	selected = 1,
-	oy = 0,
+	oy = -64,
 }
 
 function state.menu:enter()
-	self.options = {
-		{
-			text = 'now playing...',
-			confirm = function()
-				switch_state(state.now_playing)
-			end,
-		},
-	}
+	self.options = {}
 	for filename in all(dir()) do
 		add(self.options, {
 			text = get_cart_name(filename),
 			confirm = function()
-				load_audio_from_file(filename)
+				if cart_name ~= get_cart_name(filename) then
+					load_audio_from_file(filename)
+					music(-1)
+					is_playing = false
+				end
 				switch_state(state.now_playing)
-				music(-1)
-				is_playing = false
 			end,
 		})
 	end
@@ -174,7 +169,7 @@ end
 state.now_playing = {}
 
 function state.now_playing:enter()
-	self.selected_row = 'minimap'
+	self.selected_row = 'controls'
 	self.selected_pattern = 0
 	self.selected_button = 2
 
