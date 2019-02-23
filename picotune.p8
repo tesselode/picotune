@@ -20,6 +20,14 @@ local function get_pattern_flags(pattern_index)
 	return is_begin_loop, is_end_loop, is_stop
 end
 
+local function get_note_volume(sfx, channel, note)
+	local note_address = 0x3200 + 68 * sfx + 2 * note
+	return band(shr(peek(note_address + 1), 1), 0b00000111)
+end
+
+-->8
+-- main stuff
+
 local function load_audio_from_file(filename)
 	reload(0x3100, 0x3100, 0x11ff, filename)
 	local tracks = {}
@@ -36,7 +44,6 @@ local function load_audio_from_file(filename)
 	return tracks
 end
 
--->8
 -- now playing
 local tracks = {}
 local is_playing = false
@@ -50,6 +57,7 @@ local pattern_display_oy = {}
 for pattern_index = 0, 63 do
 	pattern_display_oy[pattern_index] = 0
 end
+local visualizer_bars = {0, 0, 0, 0}
 
 function _init()
 	poke(0x5f2c, 3)
@@ -147,6 +155,21 @@ function _update60()
 
 	-- pattern cursor animation
 	pattern_cursor_blink_phase += 1/60
+
+	-- bar visualizer
+	for channel = 0, 3 do
+		local volume = 0
+		local sfx = stat(16 + channel)
+		local note = stat(20 + channel)
+		if sfx ~= -1 and note ~= -1 then
+			volume = get_note_volume(sfx, channel, note)
+		end
+		if volume > visualizer_bars[channel + 1] then
+			visualizer_bars[channel + 1] = volume
+		elseif visualizer_bars[channel + 1] > volume then
+			visualizer_bars[channel + 1] -= 1/8
+		end
+	end
 end
 
 function _draw()
@@ -192,6 +215,20 @@ function _draw()
 	end
 	spr(3, 38, 44)
 	pal()
+
+	-- draw visualizer bars
+	for channel = 0, 3 do
+		local v = visualizer_bars[channel + 1]
+		for i = 0, visualizer_bars[channel + 1] do
+			local y = 28 - 2 * i
+			local color = i > 6 and 8
+				or i > 4 and 10
+				or i > 2 and 11
+				or i > 0 and 12
+				or 1
+			line(16 * channel + 1, y, 16 * channel + 14, y, color)
+		end
+	end
 end
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
