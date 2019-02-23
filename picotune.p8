@@ -1,6 +1,16 @@
 pico-8 cartridge // http://www.pico-8.com
 version 16
 __lua__
+-- filename utilities
+local function get_cart_name(filename)
+	for pos = 1, #filename - 3 do
+		if sub(filename, pos, pos + 2) == '.p8' then
+			return sub(filename, 1, pos - 1)
+		end
+	end
+	return filename
+end
+
 -- audio utilities
 local function is_pattern_empty(pattern_index)
 	local start_address = 0x3100 + 4 * pattern_index
@@ -28,23 +38,8 @@ end
 -->8
 -- main stuff
 
-local function load_audio_from_file(filename)
-	reload(0x3100, 0x3100, 0x11ff, filename)
-	local tracks = {}
-	local in_track = false
-	for pattern_index = 0, 63 do
-		local is_begin_loop, is_end_loop, is_stop = get_pattern_flags(pattern_index)
-		if is_pattern_empty(pattern_index) or is_end_loop or is_stop then
-			in_track = false
-		elseif not in_track then
-			in_track = true
-			tracks[pattern_index] = true
-		end
-	end
-	return tracks
-end
-
 -- now playing
+local cart_name = ''
 local tracks = {}
 local is_playing = false
 local selected_row = 'minimap'
@@ -59,9 +54,25 @@ for pattern_index = 0, 63 do
 end
 local visualizer_bars = {0, 0, 0, 0}
 
+local function load_audio_from_file(filename)
+	cart_name = get_cart_name(filename)
+	reload(0x3100, 0x3100, 0x11ff, filename)
+	tracks = {}
+	local in_track = false
+	for pattern_index = 0, 63 do
+		local is_begin_loop, is_end_loop, is_stop = get_pattern_flags(pattern_index)
+		if is_pattern_empty(pattern_index) or is_end_loop or is_stop then
+			in_track = false
+		elseif not in_track then
+			in_track = true
+			tracks[pattern_index] = true
+		end
+	end
+end
+
 function _init()
 	poke(0x5f2c, 3)
-	tracks = load_audio_from_file 'test.p8'
+	load_audio_from_file 'celeste.p8.png'
 end
 
 function _update60()
@@ -167,7 +178,7 @@ function _update60()
 		if volume > visualizer_bars[channel + 1] then
 			visualizer_bars[channel + 1] = volume
 		elseif visualizer_bars[channel + 1] > volume then
-			visualizer_bars[channel + 1] -= 1/8
+			visualizer_bars[channel + 1] -= 1/2
 		end
 	end
 end
@@ -229,6 +240,11 @@ function _draw()
 			line(16 * channel + 1, y, 16 * channel + 14, y, color)
 		end
 	end
+
+	-- draw cart name
+	local x = 32 - #cart_name * 2
+	print(cart_name, x, 55, 1)
+	print(cart_name, x, 54, 6)
 end
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
