@@ -118,7 +118,7 @@ function _update60()
 					is_playing = false
 				else
 					music(selected_pattern)
-					is_playing = true
+					is_playing = not is_pattern_empty(selected_pattern)
 				end
 			elseif selected_button == 3 then
 				-- next track
