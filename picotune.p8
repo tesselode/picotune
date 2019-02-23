@@ -3,7 +3,7 @@ version 16
 __lua__
 -- utilities
 
--- filename utilities
+-- string utilities
 local function get_cart_name(filename)
 	for pos = 1, #filename - 2 do
 		if sub(filename, pos, pos + 2) == '.p8' then
@@ -11,6 +11,13 @@ local function get_cart_name(filename)
 		end
 	end
 	return filename
+end
+
+local function clip_text(text)
+	if #text > 16 then
+		return sub(text, 1, 13) .. '...'
+	end
+	return text
 end
 
 -- audio utilities
@@ -360,7 +367,7 @@ function state.now_playing:draw()
 	local track_text = is_playing and 'track ' .. track_number or 'stopped'
 	clip(0, 53, 64, 8)
 	camera(0, self.track_info_text_oy)
-	print_shadow(cart_name, 32, 54, 6, 1, .5)
+	print_shadow(clip_text(cart_name), 32, 54, 6, 1, .5)
 	print_shadow(track_text, 32, 62, 6, 1, .5)
 	camera()
 	clip()
