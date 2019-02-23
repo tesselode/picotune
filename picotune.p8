@@ -35,6 +35,24 @@ local function get_note_volume(sfx, channel, note)
 	return band(shr(peek(note_address + 1), 1), 0b00000111)
 end
 
+local function get_track_number(tracks, pattern)
+	local track_number = 0
+	for track_position, _ in pairs(tracks) do
+		if pattern >= track_position then
+			track_number += 1
+		end
+	end
+	return track_number
+end
+
+-- drawing utilities
+function print_shadow(text, x, y, color, shadow_color, align)
+	align = align or 0
+	x -= #text * 4 * align
+	print(text, x, y + 1, shadow_color)
+	print(text, x, y, color)
+end
+
 -->8
 -- main stuff
 
@@ -53,6 +71,7 @@ for pattern_index = 0, 63 do
 	pattern_display_oy[pattern_index] = 0
 end
 local visualizer_bars = {0, 0, 0, 0}
+local track_info_text_oy = 0
 
 local function load_audio_from_file(filename)
 	cart_name = get_cart_name(filename)
@@ -181,6 +200,17 @@ function _update60()
 			visualizer_bars[channel + 1] -= 1/2
 		end
 	end
+
+	-- track info text animation
+	if sin(time() / 16) <= 0 then
+		if track_info_text_oy > 0 then
+			track_info_text_oy -= 1/2
+		end
+	else
+		if track_info_text_oy < 8 then
+			track_info_text_oy += 1/2
+		end
+	end
 end
 
 function _draw()
@@ -242,9 +272,14 @@ function _draw()
 	end
 
 	-- draw cart name
-	local x = 32 - #cart_name * 2
-	print(cart_name, x, 55, 1)
-	print(cart_name, x, 54, 6)
+	local track_number = get_track_number(tracks, stat(24))
+	local track_text = is_playing and 'track ' .. track_number or 'stopped'
+	clip(0, 53, 64, 8)
+	camera(0, track_info_text_oy)
+	print_shadow(cart_name, 32, 54, 6, 1, .5)
+	print_shadow(track_text, 32, 62, 6, 1, .5)
+	camera()
+	clip()
 end
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
