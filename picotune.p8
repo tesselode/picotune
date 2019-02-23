@@ -122,6 +122,8 @@ function state.menu:enter()
 			confirm = function()
 				load_audio_from_file(filename)
 				switch_state(state.now_playing)
+				music(-1)
+				is_playing = false
 			end,
 		})
 	end
