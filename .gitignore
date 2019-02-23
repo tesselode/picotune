@@ -1,0 +1,4 @@
+*.p8
+*.p8.png
+!picotune.p8
+!test.p8
