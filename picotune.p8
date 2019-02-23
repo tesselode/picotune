@@ -1,6 +1,8 @@
 pico-8 cartridge // http://www.pico-8.com
 version 16
 __lua__
+-- utilities
+
 -- filename utilities
 local function get_cart_name(filename)
 	for pos = 1, #filename - 2 do
@@ -53,25 +55,26 @@ function print_shadow(text, x, y, color, shadow_color, align)
 	print(text, x, y, color)
 end
 
--->8
--- main stuff
+-- state management
+local state = {}
 
--- now playing
+local current_state
+
+local function switch_state(state, ...)
+	if current_state and current_state.previous then
+		current_state:previous(state, ...)
+	end
+	current_state = state
+	if current_state.enter then
+		current_state:enter(state, ...)
+	end
+end
+
+-->8
+-- music playback
 local cart_name = ''
 local tracks = {}
 local is_playing = false
-local selected_row = 'minimap'
-local selected_pattern = 0
-local selected_button = 2
-
--- cosmetic
-local pattern_cursor_blink_phase = 0
-local pattern_display_oy = {}
-for pattern_index = 0, 63 do
-	pattern_display_oy[pattern_index] = 0
-end
-local visualizer_bars = {0, 0, 0, 0}
-local track_info_text_oy = 0
 
 local function load_audio_from_file(filename)
 	cart_name = get_cart_name(filename)
@@ -89,82 +92,97 @@ local function load_audio_from_file(filename)
 	end
 end
 
-function _init()
-	poke(0x5f2c, 3)
-	load_audio_from_file 'tera.p8'
+-->8
+-- now playing screen
+
+state.now_playing = {}
+
+function state.now_playing:enter()
+	self.selected_row = 'minimap'
+	self.selected_pattern = 0
+	self.selected_button = 2
+
+	-- cosmetic
+	self.pattern_cursor_blink_phase = 0
+	self.pattern_display_oy = {}
+	for pattern_index = 0, 63 do
+		self.pattern_display_oy[pattern_index] = 0
+	end
+	self.visualizer_bars = {0, 0, 0, 0}
+	self.track_info_text_oy = 0
 end
 
-function _update60()
+function state.now_playing:update()
 	-- switch rows
-	if selected_row == 'minimap' and btnp(3) then
-		selected_row = 'controls'
+	if self.selected_row == 'minimap' and btnp(3) then
+		self.selected_row = 'controls'
 	end
-	if selected_row == 'controls' and btnp(2) then
-		selected_row = 'minimap'
+	if self.selected_row == 'controls' and btnp(2) then
+		self.selected_row = 'minimap'
 	end
 
-	if selected_row == 'minimap' then
+	if self.selected_row == 'minimap' then
 		-- pattern navigation
 		if btnp(0) then
-			selected_pattern -= 1
-			if selected_pattern < 0 then
-				selected_pattern = 63
+			self.selected_pattern -= 1
+			if self.selected_pattern < 0 then
+				self.selected_pattern = 63
 			end
-			pattern_cursor_blink_phase = 0
+			self.pattern_cursor_blink_phase = 0
 		elseif btnp(1) then
-			selected_pattern += 1
-			if selected_pattern > 63 then
-				selected_pattern = 0
+			self.selected_pattern += 1
+			if self.selected_pattern > 63 then
+				self.selected_pattern = 0
 			end
-			pattern_cursor_blink_phase = 0
+			self.pattern_cursor_blink_phase = 0
 		end
-	elseif selected_row == 'controls' then
+	elseif self.selected_row == 'controls' then
 		-- player controls
 		if btnp(0) then
-			selected_button = max(1, selected_button - 1)
+			self.selected_button = max(1, self.selected_button - 1)
 		elseif btnp(1) then
-			selected_button = min(3, selected_button + 1)
+			self.selected_button = min(3, self.selected_button + 1)
 		end
 	end
 
 	if btnp(4) then
-		if selected_row == 'minimap' then
+		if self.selected_row == 'minimap' then
 		-- start/stop music on minimap
-			if is_playing and selected_pattern == stat(24) then
+			if is_playing and self.selected_pattern == stat(24) then
 				music(-1)
 				is_playing = false
 			else
-				music(selected_pattern)
-				is_playing = not is_pattern_empty(selected_pattern)
+				music(self.selected_pattern)
+				is_playing = not is_pattern_empty(self.selected_pattern)
 			end
-		elseif selected_row == 'controls' then
-			if selected_button == 1 then
+		elseif self.selected_row == 'controls' then
+			if self.selected_button == 1 then
 				-- previous track
-				for pattern_index = selected_pattern - 1, 0, -1 do
+				for pattern_index = self.selected_pattern - 1, 0, -1 do
 					if tracks[pattern_index] then
-						selected_pattern = pattern_index
+						self.selected_pattern = pattern_index
 						if is_playing then
-							music(selected_pattern)
+							music(self.selected_pattern)
 						end
 						break
 					end
 				end
-			elseif selected_button == 2 then
+			elseif self.selected_button == 2 then
 				-- play/stop button
 				if is_playing then
 					music(-1)
 					is_playing = false
 				else
-					music(selected_pattern)
-					is_playing = not is_pattern_empty(selected_pattern)
+					music(self.selected_pattern)
+					is_playing = not is_pattern_empty(self.selected_pattern)
 				end
-			elseif selected_button == 3 then
+			elseif self.selected_button == 3 then
 				-- next track
-				for pattern_index = selected_pattern + 1, 63 do
+				for pattern_index = self.selected_pattern + 1, 63 do
 					if tracks[pattern_index] then
-						selected_pattern = pattern_index
+						self.selected_pattern = pattern_index
 						if is_playing then
-							music(selected_pattern)
+							music(self.selected_pattern)
 						end
 						break
 					end
@@ -176,15 +194,15 @@ function _update60()
 	-- playing pattern animation
 	for pattern_index = 0, 63 do
 		local target_oy = (is_playing and stat(24) == pattern_index) and -2 or 0
-		if pattern_display_oy[pattern_index] < target_oy then
-			pattern_display_oy[pattern_index] += 1/4
-		elseif pattern_display_oy[pattern_index] > target_oy then
-			pattern_display_oy[pattern_index] -= 1/4
+		if self.pattern_display_oy[pattern_index] < target_oy then
+			self.pattern_display_oy[pattern_index] += 1/4
+		elseif self.pattern_display_oy[pattern_index] > target_oy then
+			self.pattern_display_oy[pattern_index] -= 1/4
 		end
 	end
 
 	-- pattern cursor animation
-	pattern_cursor_blink_phase += 1/60
+	self.pattern_cursor_blink_phase += 1/60
 
 	-- bar visualizer
 	for channel = 0, 3 do
@@ -194,26 +212,26 @@ function _update60()
 		if sfx ~= -1 and note ~= -1 then
 			volume = get_note_volume(sfx, channel, note)
 		end
-		if volume > visualizer_bars[channel + 1] then
-			visualizer_bars[channel + 1] = volume
-		elseif visualizer_bars[channel + 1] > volume then
-			visualizer_bars[channel + 1] -= 1/2
+		if volume > self.visualizer_bars[channel + 1] then
+			self.visualizer_bars[channel + 1] = volume
+		elseif self.visualizer_bars[channel + 1] > volume then
+			self.visualizer_bars[channel + 1] -= 1/2
 		end
 	end
 
 	-- track info text animation
 	if sin(time() / 16) <= 0 then
-		if track_info_text_oy > 0 then
-			track_info_text_oy -= 1/2
+		if self.track_info_text_oy > 0 then
+			self.track_info_text_oy -= 1/2
 		end
 	else
-		if track_info_text_oy < 8 then
-			track_info_text_oy += 1/2
+		if self.track_info_text_oy < 8 then
+			self.track_info_text_oy += 1/2
 		end
 	end
 end
 
-function _draw()
+function state.now_playing:draw()
 	cls()
 
 	-- draw music minimap
@@ -225,31 +243,31 @@ function _draw()
 			or is_stop and 8
 			or is_empty and 1
 			or 13
-		local oy = pattern_display_oy[pattern_index]
+		local oy = self.pattern_display_oy[pattern_index]
 		line(pattern_index, 32 + oy, pattern_index, 40 + oy, color)
 	end
 
 	-- draw pattern cursor
-	if sin(pattern_cursor_blink_phase) < 0 then
-		local oy = pattern_display_oy[selected_pattern]
-		local color = selected_row == 'minimap' and 7 or 6
-		line(selected_pattern, 32 + oy, selected_pattern, 40 + oy, color)
+	if sin(self.pattern_cursor_blink_phase) < 0 then
+		local oy = self.pattern_display_oy[self.selected_pattern]
+		local color = self.selected_row == 'minimap' and 7 or 6
+		line(self.selected_pattern, 32 + oy, self.selected_pattern, 40 + oy, color)
 	end
 
 	-- draw player controls
-	if selected_row == 'controls' and selected_button == 1 then
+	if self.selected_row == 'controls' and self.selected_button == 1 then
 		pal(14, 7)
 	else
 		pal(14, 14)
 	end
 	spr(4, 18, 44)
-	if selected_row == 'controls' and selected_button == 2 then
+	if self.selected_row == 'controls' and self.selected_button == 2 then
 		pal(14, 7)
 	else
 		pal(14, 14)
 	end
 	spr(is_playing and 2 or 1, 28, 44)
-	if selected_row == 'controls' and selected_button == 3 then
+	if self.selected_row == 'controls' and self.selected_button == 3 then
 		pal(14, 7)
 	else
 		pal(14, 14)
@@ -259,8 +277,8 @@ function _draw()
 
 	-- draw visualizer bars
 	for channel = 0, 3 do
-		local v = visualizer_bars[channel + 1]
-		for i = 0, visualizer_bars[channel + 1] do
+		local v = self.visualizer_bars[channel + 1]
+		for i = 0, self.visualizer_bars[channel + 1] do
 			local y = 28 - 2 * i
 			local color = i > 6 and 8
 				or i > 4 and 10
@@ -275,12 +293,30 @@ function _draw()
 	local track_number = get_track_number(tracks, stat(24))
 	local track_text = is_playing and 'track ' .. track_number or 'stopped'
 	clip(0, 53, 64, 8)
-	camera(0, track_info_text_oy)
+	camera(0, self.track_info_text_oy)
 	print_shadow(cart_name, 32, 54, 6, 1, .5)
 	print_shadow(track_text, 32, 62, 6, 1, .5)
 	camera()
 	clip()
 end
+
+-->8
+-- main loop
+
+function _init()
+	poke(0x5f2c, 3)
+	load_audio_from_file 'tera.p8'
+	switch_state(state.now_playing)
+end
+
+function _update60()
+	current_state:update()
+end
+
+function _draw()
+	current_state:draw()
+end
+
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000000000ee000000eeeee000e00e000000e00e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
