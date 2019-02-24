@@ -382,19 +382,103 @@ end
 -->8
 -- visualizers
 
+local particles_visualizer = {}
+
+function particles_visualizer:start()
+	self.planets = {
+		{x = 16, y = 16, mass = 1},
+		{x = 48, y = 16, mass = 1},
+		{x = 48, y = 48, mass = 1},
+		{x = 16, y = 48, mass = 1},
+	}
+	self.particles = {}
+	for i = 1, 32 do
+		add(self.particles, {x = rnd(64), y = rnd(64), vx = 0, vy = 0})
+	end
+end
+
+function particles_visualizer:update()
+	-- update planet masses
+	for channel = 0, 3 do
+		local volume = 0
+		local sfx = stat(16 + channel)
+		local note = stat(20 + channel)
+		if sfx ~= -1 and note ~= -1 then
+			volume = get_note_volume(sfx, channel, note)
+		end
+		local planet = self.planets[channel + 1]
+		planet.mass += (volume - planet.mass) * .1
+		planet.mass = max(volume, planet.mass)
+	end
+
+	-- update particles
+	for particle in all(self.particles) do
+		-- gravity
+		for planet in all(self.planets) do
+			local dist2 = (planet.x - particle.x) ^ 2 + (planet.y - particle.y) ^ 2
+			local force = .01 * planet.mass / dist2
+			force = min(force, .1)
+			particle.vx += (planet.x - particle.x) * force
+			particle.vy += (planet.y - particle.y) * force
+		end
+		-- apply velocity
+		particle.x += particle.vx
+		particle.y += particle.vy
+		-- bounce off screen edges
+		if particle.x < 0 then
+			particle.x = 1
+			particle.vx *= -1
+		end
+		if particle.x > 64 then
+			particle.x = 63
+			particle.vx *= -1
+		end
+		if particle.y < 0 then
+			particle.y = 1
+			particle.vy *= -1
+		end
+		if particle.y > 64 then
+			particle.y = 63
+			particle.vy *= -1
+		end
+	end
+end
+
+function particles_visualizer:draw()
+	cls()
+	for planet in all(self.planets) do
+		local color = planet.mass > 6 and 7
+			or planet.mass > 3 and 6
+			or 5
+		circfill(planet.x, planet.y, planet.mass + 1, color)
+	end
+	for p in all(self.particles) do
+		local speed2 = p.vx ^ 2 + p.vy ^ 2
+		local color = speed2 > 1/10 and 12
+			or speed2 > 1/20 and 13
+			or speed2 > 1/30 and 2
+			or 1
+		line(p.x, p.y, p.x - p.vx * 6.5, p.y - p.vy * 6.5, color)
+	end
+end
+
 state.visualizer = {}
 
 function state.visualizer:enter()
+	cls()
+	self.visualizer = particles_visualizer
+	self.visualizer:start()
 end
 
 function state.visualizer:update()
+	self.visualizer:update()
 	if btnp(5) then
 		switch_state(state.now_playing)
 	end
 end
 
 function state.visualizer:draw()
-	print('hi!', 0, 0, 7)
+	self.visualizer:draw()
 end
 
 -->8
