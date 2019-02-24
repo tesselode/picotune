@@ -125,42 +125,56 @@ function state.menu:enter()
 end
 
 function state.menu:update()
-	if btnp(2) then
-		self.selected -= 1
-		if self.selected < 1 then
-			self.selected = #self.options
+	if #self.options > 0 then
+		-- input
+		if btnp(2) then
+			self.selected -= 1
+			if self.selected < 1 then
+				self.selected = #self.options
+			end
+		elseif btnp(3) then
+			self.selected += 1
+			if self.selected > #self.options then
+				self.selected = 1
+			end
+		elseif btnp(4) then
+			self.options[self.selected].confirm()
 		end
-	elseif btnp(3) then
-		self.selected += 1
-		if self.selected > #self.options then
-			self.selected = 1
-		end
-	elseif btnp(4) then
-		self.options[self.selected].confirm()
-	end
 
-	local target_oy = 8 * (self.selected - 4)
-	target_oy = min(target_oy, 8 * #self.options - 62)
-	target_oy = max(-6, target_oy)
-	self.oy += (target_oy - self.oy) / 4
+		-- smooth scrolling
+		local target_oy = 8 * (self.selected - 4)
+		target_oy = min(target_oy, 8 * #self.options - 62)
+		target_oy = max(-6, target_oy)
+		self.oy += (target_oy - self.oy) / 4
+	end
 end
 
 function state.menu:draw()
 	cls(0)
 	spr(80, 0, 0, 5, 1)
-	clip(0, 6, 64, 58)
-	camera(0, self.oy)
-	for i = 1, #self.options do
-		local y = 8 * (i - 1)
-		if i == self.selected then
-			rectfill(0, y, 64, y + 7, 2)
-			print_shadow(self.options[i].text, 1, y + 1, 7, 1)
-		else
-			print(self.options[i].text, 1, y + 2, 7)
+	if #self.options > 0 then
+		clip(0, 6, 64, 58)
+		camera(0, self.oy)
+		for i = 1, #self.options do
+			local y = 8 * (i - 1)
+			if i == self.selected then
+				rectfill(0, y, 64, y + 7, 2)
+				print_shadow(self.options[i].text, 1, y + 1, 7, 1)
+			else
+				print(self.options[i].text, 1, y + 2, 7)
+			end
 		end
+		camera()
+		clip()
+	else
+		camera(0, -12)
+		print_shadow('no music found', 32, 4, 7, 1, .5)
+		rectfill(0, 14, 64, 22, 2)
+		print_shadow('> folder', 32, 16, 7, 0, .5)
+		print_shadow('put carts here!', 32, 28, 7, 1, .5)
+		print_shadow('♥', 31, 40 + 2.5 * sin(time() / 4), 14, 2, .5)
+		camera()
 	end
-	camera()
-	clip()
 end
 
 -->8
