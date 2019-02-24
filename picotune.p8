@@ -122,6 +122,9 @@ function state.menu:enter()
 			end,
 		})
 	end
+
+	-- cosmetic
+	self.long_text_scroll_phase = 0
 end
 
 function state.menu:update()
@@ -132,14 +135,19 @@ function state.menu:update()
 			if self.selected < 1 then
 				self.selected = #self.options
 			end
+			self.long_text_scroll_phase = 0
 		elseif btnp(3) then
 			self.selected += 1
 			if self.selected > #self.options then
 				self.selected = 1
 			end
+			self.long_text_scroll_phase = 0
 		elseif btnp(4) then
 			self.options[self.selected].confirm()
 		end
+
+		-- text overflow scrolling
+		self.long_text_scroll_phase += 1/60
 
 		-- smooth scrolling
 		local target_oy = 8 * (self.selected - 4)
@@ -159,7 +167,12 @@ function state.menu:draw()
 			local y = 8 * (i - 1)
 			if i == self.selected then
 				rectfill(0, y, 64, y + 7, 2)
-				print_shadow(self.options[i].text, 1, y + 1, 7, 1)
+				local ox = 0
+				if #self.options[i].text > 16 then
+					local overflow = #self.options[i].text * 4 + 2 - 64
+					ox = overflow * (.5 + .49 * sin(self.long_text_scroll_phase / 4 + .25))
+				end
+				print_shadow(self.options[i].text, 1 - flr(ox), y + 1, 7, 1)
 			else
 				print(self.options[i].text, 1, y + 2, 7)
 			end
