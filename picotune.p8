@@ -497,6 +497,8 @@ function particles_visualizer:update()
 			force = min(force, .1)
 			particle.vx += (planet.x - particle.x) * force
 			particle.vy += (planet.y - particle.y) * force
+			particle.vx *= .9999
+			particle.vy *= .9999
 		end
 		-- apply velocity
 		particle.x += particle.vx
