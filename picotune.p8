@@ -100,6 +100,48 @@ local function load_audio_from_file(filename)
 end
 
 -->8
+-- startup sequence
+
+state.startup = {}
+
+function state.startup:enter()
+	self.bars = {}
+	for i = 1, 3 do
+		add(self.bars, {height = 0, velocity = 0, target = 0})
+	end
+	self.time = 0
+end
+
+function state.startup:update()
+	self.time += 1
+	if self.time == 15 or self.time == 30 then
+		for bar in all(self.bars) do
+			bar.target = rnd(5)
+		end
+	end
+	if self.time == 45 then
+		self.bars[1].target = 2
+		self.bars[2].target = 5
+		self.bars[3].target = 3
+	end
+	for bar in all(self.bars) do
+		bar.velocity += 1/6 * (bar.target - (bar.height + bar.velocity * .75))
+		bar.height += 1/6 * bar.velocity
+		bar.height = max(bar.height, 0)
+		if abs(bar.height - bar.target) < .1 then
+			bar.height = bar.target
+		end
+	end
+end
+
+function state.startup:draw()
+	cls()
+	rectfill(16, 24, 17, 24 - self.bars[1].height * 2, 12)
+	rectfill(20, 24, 21, 24 - self.bars[2].height * 2, 11)
+	rectfill(24, 24, 25, 24 - self.bars[3].height * 2, 14)
+end
+
+-->8
 -- menu
 
 state.menu = {
@@ -531,7 +573,7 @@ end
 
 function _init()
 	poke(0x5f2c, 3)
-	switch_state(state.menu)
+	switch_state(state.startup)
 end
 
 function _update60()
